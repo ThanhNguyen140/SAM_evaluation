@@ -8,7 +8,11 @@ from segment_anything import SamPredictor, sam_model_registry, SamAutomaticMaskG
 import gzip
 import sys
 import glob
-
+import random
+import sys
+from torch import tensor
+from torchmetrics.classification import BinaryJaccardIndex
+os.chdir('../sam-lab')
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 MODEL_TYPE = "vit_h"
 CHECKPOINT_PATH = "sam_vit_h_4b8939.pth"
@@ -21,7 +25,7 @@ def show_points(coords, labels, ax, marker_size=10):
     ax.scatter(pos_points[:, 0], pos_points[:, 1], color='green', marker='*', s=marker_size, edgecolor='green', linewidth=1.25)
     ax.scatter(neg_points[:, 0], neg_points[:, 1], color='red', marker='*', s=marker_size, edgecolor='red', linewidth=1.25)   
 
-import random
+
 def sam_input(gt_image, label: int, n_points: int, input_image = np.array([None]), pixel_values = range(256)):
     '''
     Generates an array of a defined number of sampled points from one class of the gt_image.
@@ -91,6 +95,24 @@ def generate_mask_image(image,gt_image,num_class_1,num_class2,num_class3):
             pass
     return masks
 
+def Jaccard_score(masks, ground_truth):
+    for i in range(ground_truth.shape[2]):
+        for j in range(3):
+            pred = tensor(masks[i,j,:,:])
+            target = tensor(np.where(ground_truth[:,:,i]== j + 1,1,0))
+            metric = BinaryJaccardIndex()
+            score = metric(pred, target)
+            scores[j,i] = score
+    # Filter for NaN 
+    filter_score = scores[scores.isnan() == False]
+    filter_score = filter_score.reshape([3,int(len(filter_score)/3)])
+    mean_scores = []
+    for j in range(3):
+        score = round(float(filter_score[j,:].mean()),3)
+        mean.append(score)
+    return mean
+    
+
 def gzip_file(file,mode,image = False):
     f = gzip.GzipFile(file,mode)
     if mode == "r":
@@ -99,32 +121,32 @@ def gzip_file(file,mode,image = False):
     elif mode == "w":
         np.save(file,image)
 
-    if __name__ == "__main__":
-        input_path = sys.argv[1]
-        output_fol = sys.argv[2]
-        num_class_1 = sys.argv[3]
-        num_class_2 = sys.argv[4]
-        num_class_3 = sys.argv[5]
-        folders = ["testing","training"]
-        output_path = os.path.join(input_path,output_fol)
-        os.mkdir(output_path)
-        for folder in folders:
-            input_path2 = os.path.join(input_path,folder)
-            output_path2 = os.path.join(output_path,folder)
-            os.mkdir(output_path2)
-            for subfolder in os.listdir(input_path2):
-                sub_path = os.path.join(input_path2,subfolder)
-                if sub_path.isdir():
-                    out_sub_path = os.path.join(output_path2,subfolder)
-                    os.mkdir(out_sub_path)
-                    os.chdir(sub_path)
-                    for file in glob.glob(".npy.gz"):
-                        if "gt" in file:
-                            image = gzip_file(os.path.join(sub_path,file.replace("gt",""),"r")
-                            gt_image = gzip_file(os.path.join(sub_path,file),"r")
-                            masks = generate_mask_image(image,gt_image,num_class_1,num_class2,num_class3)
-                            output_file = file.replace("gt","predict")
-                            gzip_file(os.path.join(out_sub_path,output_file),"w",masks)
+if __name__ == "__main__":
+    input_path = sys.argv[1]
+    output_fol = sys.argv[2]
+    num_class_1 = sys.argv[3]
+    num_class_2 = sys.argv[4]
+    num_class_3 = sys.argv[5]
+    folders = ["testing","training"]
+    output_path = os.path.join(input_path,output_fol)
+    os.mkdir(output_path)
+    for folder in folders:
+        input_path2 = os.path.join(input_path,folder)
+        output_path2 = os.path.join(output_path,folder)
+        os.mkdir(output_path2)
+        for subfolder in os.listdir(input_path2):
+            sub_path = os.path.join(input_path2,subfolder)
+            if sub_path.isdir():
+                out_sub_path = os.path.join(output_path2,subfolder)
+                os.mkdir(out_sub_path)
+                os.chdir(sub_path)
+                for file in glob.glob(".npy.gz"):
+                    if "gt" in file:
+                        image = gzip_file(os.path.join(sub_path,file.replace("gt",""),"r"))
+                        gt_image = gzip_file(os.path.join(sub_path,file),"r")
+                        masks = generate_mask_image(image,gt_image,num_class_1,num_class2,num_class3)
+                        output_file = file.replace("gt","predict")
+                        gzip_file(os.path.join(out_sub_path,output_file),"w",masks)
                             
                         
                     
