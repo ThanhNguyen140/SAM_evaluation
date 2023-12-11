@@ -100,7 +100,7 @@ def get_logits(prompts, predictor):
     return masks
 
 
-def multiclass_prob(binary_logits):
+def multiclass_prob(binary_logits, hard_labels=False):
     """Get probabilities for multiclass classification.
 
     Args:
@@ -128,9 +128,13 @@ def multiclass_prob(binary_logits):
     bin_probs[mask] /= sum_probs[mask, None]
     prob_background[mask] = 0
 
-    multiclass_prob[..., : len(binary_logits)] = bin_probs
+    multiclass_prob[..., 1 : len(binary_logits) + 1] = bin_probs
     multiclass_prob[
-        ..., -1
+        ..., 0
     ] = prob_background  # Use the last channel for prob_background
+
+    if hard_labels == True:
+        predicted_labels = np.argmax(multiclass_prob, axis=-1)
+        return predicted_labels
 
     return multiclass_prob
