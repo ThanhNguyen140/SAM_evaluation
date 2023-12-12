@@ -2,3 +2,9 @@
 ACDC
 sam_vit_h_4b8939.pth
 SAM Paper.pdf
+thanh/__pycache__
+.DS_Store
+thanh/__pycache__/preprocess.cpython-311.pyc
+functions/__pycache__/preprocess.cpython-311.pyc
+functions/__pycache__/pipeline.cpython-311.pyc
+thanh/__pycache__/preprocess.cpython-311.pyc

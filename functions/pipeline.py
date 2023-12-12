@@ -15,7 +15,7 @@ from torchmetrics.classification import BinaryJaccardIndex
 from functions.preprocess import preprocess_image
 from functions.sam_functions import get_logits,multiclass_prob,sample_from_class
 
-os.chdir('../sam-lab')
+os.chdir('..')
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 MODEL_TYPE = "vit_h"
 CHECKPOINT_PATH = "sam_vit_h_4b8939.pth"
@@ -65,7 +65,7 @@ def show_mask(mask, ax, random_color=False):
     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
     ax.imshow(mask_image)
 
-def generate_mask_mul_prts(image,gt_image,num_class_1,num_class2,num_class3):
+def generate_mask_mul_prts(image,gt_image,num_class_1,num_class_2,num_class_3):
     """Generate an array of mask for 3 classes in each Z-stack
 
     Args:
@@ -78,15 +78,14 @@ def generate_mask_mul_prts(image,gt_image,num_class_1,num_class2,num_class3):
     Returns:
         Array: A mask array of dimension of H x W x Z(Z: Z-stacks)
     """
-    mask_array = = np.zeros(image.shape)
+    mask_array = np.zeros(image.shape)
     for i in range(image.shape[2]):
-        masks = []
         # Create RGB image for SAM input
         img = cv2.cvtColor(image[:,:,i],cv2.COLOR_GRAY2RGB)
         sam_img = cv2.normalize(img, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
         sam_img = sam_img.astype(np.uint8)
         # Use try because some slices do not contain segmentation
-        try:
+        if len(np.unique(gt_image[:,:,i])) > 1:
             # Generate points for 3 classes, class 2 is usually more difficult to recognize 
             points_1 = sam_input(gt_image[:,:,i],1,num_class_1)
             points_2 = sam_input(gt_image[:,:,i],2,num_class_2)
@@ -95,32 +94,36 @@ def generate_mask_mul_prts(image,gt_image,num_class_1,num_class2,num_class3):
             # Generate predictor
             predictor = SamPredictor(sam)
             predictor.set_image(sam_img)
-            num = [num_class_1,num_class_2,num_class_3]
+            masks = []
             for j in range(3):
                 input_labels = np.zeros(num_class_1 + num_class_2 + num_class_3)
-                input_labels[j*num[j]:(j+1)*num[j]] = 1
+                if j == 0:
+                    input_labels[:num_class_1] = 1
+                elif j == 1:
+                    input_labels[num_class_1 : (num_class_1 + num_class_2)] = 1
+                elif j == 2:
+                    input_labels[(num_class_1 + num_class_2) : (num_class_3 + num_class_2)] = 1
+                print(input_labels)
                 mask, scores, logits = predictor.predict(point_coords=input_points,\
                                                         point_labels=input_labels,\
-                                                        multimask_output=False),\
+                                                        multimask_output=False,\
                                                         return_logits=True)
                 masks.append(mask)
-                mask_array[:,:,i] = multiclass_prob(masks, hard_labels=True)
-        except:
-            pass
+            mask_array[:,:,i] = multiclass_prob(masks, hard_labels=True)
     return mask_array
 
-def generate_mask_sing_prts(image,gt_image,num_prompts):
+def generate_mask_sing_prts(image,gt_image,n_points):
     """Generate an array of mask for 3 classes in each Z-stack
 
     Args:
         image (array): Image array (HxWxZ dimension with Z as number of stacks)
         gt_image (array): Image array (HxWxZ dimension with Z as number of stacks)
-        num_prompts: number of prompts for each class
+        n_points: number of prompts for each class
 
     Returns:
         Array: A mask array of dimension of H x W x Z(Z: Z-stacks)
     """
-    mask_array = = np.zeros(image.shape)
+    mask_array = np.zeros(image.shape)
     for i in range(image.shape[2]):
         img = cv2.cvtColor(image[:,:,i],cv2.COLOR_GRAY2RGB)
         sam_img = cv2.normalize(img, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
@@ -128,15 +131,13 @@ def generate_mask_sing_prts(image,gt_image,num_prompts):
         prompts = []
         predictor = SamPredictor(sam)
         predictor.set_image(sam_img)
-        # Use try because some slices do not contain segmentation
-        try:
+        # Use if because some slices do not contain segmentation
+        if len(np.unique(gt_image[:,:,i])) > 1 :
             for label in [1, 2, 3]:
-                prompts.append(sample_from_class(gt_image, label, n_points=n_points))
+                prompts.append(sample_from_class(gt_image[:,:,i], label, n_points=n_points))
             logits = get_logits(prompts, predictor)
             mask = multiclass_prob(logits, hard_labels=True)
             mask_array[:,:,i] = mask
-        except:
-            pass
     return mask_array
 
 def Jaccard_score(masks, ground_truth):
