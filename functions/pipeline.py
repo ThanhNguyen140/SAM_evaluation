@@ -14,6 +14,7 @@ from torch import tensor
 from torchmetrics.classification import BinaryJaccardIndex
 from functions.preprocess import preprocess_image
 from functions.sam_functions import get_logits,multiclass_prob,sample_from_class
+
 os.chdir('../sam-lab')
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 MODEL_TYPE = "vit_h"
