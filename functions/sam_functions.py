@@ -1,15 +1,9 @@
-from skimage.transform import resize
 import os
-from multiprocessing import pool
 import pickle
 import numpy as np
-import nibabel as nib
-import matplotlib.pyplot as plt
-import cv2
 import torch
-import math
 import random
-from segment_anything import SamPredictor, sam_model_registry, SamAutomaticMaskGenerator
+from segment_anything import SamPredictor, sam_model_registry
 from thanh.preprocess import preprocess_image
 
 

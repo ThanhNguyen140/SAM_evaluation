@@ -28,4 +28,4 @@ Metrics: IOU Score
 ## expected calibration error
 Also look into how sure the model is with the multiclass probabilities
 
-## store and give embeddings
+## store and give embeddings (Lisa)

@@ -4,6 +4,8 @@ from multiprocessing import pool
 import numpy as np
 import nibabel as nib
 import sys
+import glob
+import gzip
 
 
 def resize_image(image, old_spacing, new_spacing, order=3):  # -> Any:
