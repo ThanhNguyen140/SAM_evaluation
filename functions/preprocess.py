@@ -64,15 +64,10 @@ if __name__ == "__main__":
     for folder in os.listdir(path):
         sub_dir = os.path.join(path, folder)
         if not os.path.isfile(sub_dir) and folder != "preprocess":
-            output_subdir = os.path.join(output_dir, folder)
-            try:
-                os.mkdir(output_subdir)
-            except:
-                pass
             for sub_folder in os.listdir(sub_dir):
                 input_folder = os.path.join(sub_dir, sub_folder)
                 if not os.path.isfile(input_folder):
-                    output_folder = os.path.join(output_subdir, sub_folder)
+                    output_folder = os.path.join(output_dir, sub_folder)
                     try:
                         os.mkdir(output_folder)
                     except:
