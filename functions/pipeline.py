@@ -13,10 +13,12 @@ import sys
 from torch import tensor
 from torchmetrics.classification import MulticlassF1Score
 from torchmetrics.classification import MulticlassJaccardIndex
+from torchmetrics.classification import MulticlassAccuracy
 from functions.preprocess import preprocess_image
 from functions.sam_functions import get_logits,multiclass_prob,sample_from_class
+import pandas as pd
 
-os.chdir('..')
+os.chdir("..")
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 MODEL_TYPE = "vit_h"
 CHECKPOINT_PATH = "sam_vit_h_4b8939.pth"
@@ -86,7 +88,9 @@ def generate_mask_mul_prts(image,gt_image,num_class_1,num_class_2,num_class_3):
         sam_img = cv2.normalize(img, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
         sam_img = sam_img.astype(np.uint8)
         # Use try because some slices do not contain segmentation
-        if len(np.unique(gt_image[:,:,i])) > 1:
+        classes = np.unique(gt_image[:,:,i])
+        classes = classes[classes>0]
+        if len(classes) == 3:
             # Generate points for 3 classes, class 2 is usually more difficult to recognize 
             points_1 = sam_input(gt_image[:,:,i],1,num_class_1)
             points_2 = sam_input(gt_image[:,:,i],2,num_class_2)
@@ -132,7 +136,7 @@ def generate_mask_sing_prts(image,gt_image,n_points):
         predictor = SamPredictor(sam)
         predictor.set_image(sam_img)
         # Use if because some slices do not contain segmentation
-        if len(np.unique(gt_image[:,:,i])) > 1 :
+        if len(np.unique(gt_image[:,:,i])) == 3 :
             for label in [1, 2, 3]:
                 prompts.append(sample_from_class(gt_image[:,:,i], label, n_points=n_points))
             logits = get_logits(prompts, predictor)
@@ -192,7 +196,7 @@ def Dice_score(masks, ground_truth):
         mean_scores.append(mean_score)
     return mean_scores
     
-def accuracy_score(masks:, ground_truth):
+def accuracy_score(masks, ground_truth):
     """Generate accuracy score for the predicted mask for each class
 
     Args:
@@ -200,7 +204,7 @@ def accuracy_score(masks:, ground_truth):
         ground_truth (NDArray): H x W x Z ground containing annotation for class 0,1,2,3
 
     Returns:
-        list: list of mean accuracy score for class 0,1, 2, 3 consecutively
+        list: list of mean accuracy score for class 0, 1, 2, 3 consecutively
     """
     # Generate an empty tensor with C x Z with C as number of classes, Z as number of stacks
     scores = torch.zeros([ground_truth.shape[2],4], device = "cuda:0")
@@ -226,32 +230,62 @@ def gzip_file(file,mode,image = False):
     elif mode == "w":
         np.save(file,image)
 
-if __name__ == "__main__":
-    input_path = sys.argv[1]
-    output_fol = sys.argv[2]
-    num_class_1 = sys.argv[3]
-    num_class_2 = sys.argv[4]
-    num_class_3 = sys.argv[5]
-    folders = ["testing","training"]
-    output_path = os.path.join(input_path,output_fol)
-    os.mkdir(output_path)
-    for folder in folders:
-        input_path2 = os.path.join(input_path,folder)
-        output_path2 = os.path.join(output_path,folder)
-        os.mkdir(output_path2)
-        for subfolder in os.listdir(input_path2):
-            sub_path = os.path.join(input_path2,subfolder)
-            if sub_path.isdir():
-                out_sub_path = os.path.join(output_path2,subfolder)
-                os.mkdir(out_sub_path)
-                os.chdir(sub_path)
-                for file in glob.glob(".npy.gz"):
-                    if "gt" in file:
-                        image = gzip_file(os.path.join(sub_path,file.replace("gt",""),"r"))
-                        gt_image = gzip_file(os.path.join(sub_path,file),"r")
-                        masks = generate_mask_image(image,gt_image,num_class_1,num_class2,num_class3)
-                        output_file = file.replace("gt","predict")
-                        gzip_file(os.path.join(out_sub_path,output_file),"w",masks)
+def analyze():
+    input_path = input("Input path:")
+    output_path = input("Output path:")
+    pipeline_name = input("Name of pipeline:")
+    pipeline = input("Test of only positive prompts [y/n]:")
+    if pipeline == "n":
+        num_class_1 = int(input("Number of prompts for class 1:"))
+        num_class_2 = int(input("Number of prompts for class 2:"))
+        num_class_3 = int(input("Number of prompts for class 3:"))
+    else: 
+        num = int(input("Number of prompts per class:"))
+    try:
+        os.mkdir(output_path)
+    except:
+        pass
+    out_folder = os.path.join(output_path,pipeline_name)
+    try:
+        os.mkdir(out_folder)
+    except:
+        pass
+    os.chdir(input_path)
+    dct = {"files":[]}
+    for j in range(1,4):
+        dct[f"accuracy_{j}"] = []
+        dct[f"iou_{j}"] = []
+        dct[f"dice_{j}"] = []
+    for folder in os.listdir():
+        input_folder = os.path.join(input_path,folder)
+        os.chdir(input_folder)
+        for file in glob.glob("*_gt.npy.gz"):
+            print(file)
+            gt_image = gzip_file(file,"r")
+            image = gzip_file(file.replace("_gt",""),"r")
+            dct["files"].append(file.replace("_gt",""))
+            if pipeline == "n":
+                masks = generate_mask_mul_prts(image,gt_image,num_class_1,num_class_2,num_class_3)
+            else: 
+                masks = generate_mask_sing_prts(image,gt_image,num)
+            _,acc1,acc2,acc3 = accuracy_score(masks,gt_image)
+            _,iou1,iou2,iou3 = Jaccard_score(masks,gt_image)
+            _,dice1,dice2,dice3 = Dice_score(masks,gt_image)
+            dct["accuracy_1"].append(acc1)
+            dct["accuracy_2"].append(acc2)
+            dct["accuracy_3"].append(acc3)
+            dct["dice_1"].append(dice1)
+            dct["dice_2"].append(dice2)
+            dct["dice_3"].append(dice3)
+            dct["iou_1"].append(iou1)
+            dct["iou_2"].append(iou2)
+            dct["iou_3"].append(iou3)
+            gzip_file(os.path.join(out_folder,file.replace("_gt","")),"w",masks)
+    df = pd.DataFrame(dct)
+    df.to_csv(os.path.join(out_folder,"results.csv"))
+    return df
+                
+            
                             
                         
                     

@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import random
 from segment_anything import SamPredictor, sam_model_registry
-from thanh.preprocess import preprocess_image
+from functions.preprocess import preprocess_image
 
 
 def show_mask(mask, ax, random_color=False):
@@ -52,7 +52,7 @@ def get_masks(prompts, predictor):
 
     Args:
         prompts (list): List of lists of sampled points from ground truth
-        predictor (SAMPredictor): Predictor that has alsready a set image
+        predictor (SAMPredictor): Predictor that has already a set image
 
     Returns:
         np.array: 3D array with the masks (one for each class)
