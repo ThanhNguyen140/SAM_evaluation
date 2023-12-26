@@ -18,7 +18,7 @@ from functions.preprocess import preprocess_image
 from functions.sam_functions import get_logits,multiclass_prob,sample_from_class
 import pandas as pd
 
-os.chdir("..")
+os.chdir("/home/stud/nguyenp0/sam-lab")
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 MODEL_TYPE = "vit_h"
 CHECKPOINT_PATH = "sam_vit_h_4b8939.pth"
