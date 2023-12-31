@@ -11,6 +11,7 @@ from segment_anything.modeling import Sam
 from typing import Optional, Tuple
 from segment_anything.utils.transforms import ResizeLongestSide
 
+os.chdir("..")
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 MODEL_TYPE = "vit_h"
 CHECKPOINT_PATH = "sam_vit_h_4b8939.pth"
@@ -21,9 +22,9 @@ sam.to(device=DEVICE)
 z_stack_embedding = []
 # loop through z-stacks
 predictor = SamPredictor(sam)
-predictor.set_image(image)
-embedding = predictor.get_image_embedding()
-z_stack_embedding.append(embedding)
+#predictor.set_image(image)
+#embedding = predictor.get_image_embedding()
+#z_stack_embedding.append(embedding)
 # save z stack embedding in the folder for each patient with _emb at the end of the filename
 
 

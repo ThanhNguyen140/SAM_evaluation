@@ -16,20 +16,18 @@ def convert_to_one_hot(seg):
     return res
 
 
-def preprocess_image(nib_image, new_size=(218, 256,0), is_seg=False, keep_z_spacing=False):
+def preprocess_image(nib_image, new_size=(216, 256,0), is_seg=False, keep_z_spacing=False):
     
     image = nib_image.get_fdata()
     new_size = list(new_size)
     if keep_z_spacing:
         new_size[-1] = image.shape[-1]
-
     if not is_seg:
         order_img = 3
         if not keep_z_spacing:
             order_img = 1
-        image = resize(image, new_size, order=order_img).astype(
-            np.float32
-        )
+        image = resize(image, new_size, order=order_img, mode = "edge").astype(
+            np.float32)
         image -= image.mean()
         image /= image.std()
     else:
@@ -38,10 +36,10 @@ def preprocess_image(nib_image, new_size=(218, 256,0), is_seg=False, keep_z_spac
         results = []
         for i in range(len(tmp)):
             results.append(
-                resize(tmp[i].astype(float), new_size, 1)[None]
+                resize(tmp[i].astype(float), new_size, 1, mode = "edge")[None]
             )
         image = vals[np.vstack(results).argmax(0)]
-    new_image = image.reshape(image.shape[2],image.shape[0],image.shape[1])
+    new_image = image.transpose()
     return new_image
 
 
