@@ -1,3 +1,14 @@
+from segment_anything.utils.transforms import ResizeLongestSide
+from segment_anything import SamPredictor, sam_model_registry
+import torch
+
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+MODEL_TYPE = "vit_h"
+CHECKPOINT_PATH = "sam_vit_h_4b8939.pth"
+sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT_PATH)
+sam.to(device=DEVICE)
+
+
 class modifiedPredictor((SamPredictor)):
     """Subclass of SamPredictor class. This class allows the generation of masks with the same syntax as the parent class for predict function
     using image embeddings

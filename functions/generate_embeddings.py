@@ -5,7 +5,7 @@ import os
 import numpy as np
 import nibabel as nib
 import sys
-import glob
+import cv2
 import gzip
 from tqdm import tqdm
 from segment_anything import SamPredictor, sam_model_registry
@@ -13,7 +13,6 @@ import torch
 import numpy as np
 from segment_anything.modeling import Sam
 from typing import Optional, Tuple
-from segment_anything.utils.transforms import ResizeLongestSide
 
 if __name__ == "__main__":
     # load SAM Model
@@ -32,7 +31,12 @@ if __name__ == "__main__":
     embeddings = []
     # loop through all images in preprocess
     for image in tqdm(images):
-        predictor.set_image(image)
+        img = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        sam_img = cv2.normalize(
+            img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F
+        )
+        sam_img = sam_img.astype(np.uint8)
+        predictor.set_image(sam_img)
         embedding = predictor.get_image_embedding()
         embeddings.append(embedding)
 
