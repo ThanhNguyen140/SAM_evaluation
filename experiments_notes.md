@@ -29,3 +29,7 @@ Metrics: IOU Score
 Also look into how sure the model is with the multiclass probabilities
 
 ## store and give embeddings (Lisa)
+
+
+# Look into torch DataSet and DataLoader
+# Save all embeddings, not only images but also points
