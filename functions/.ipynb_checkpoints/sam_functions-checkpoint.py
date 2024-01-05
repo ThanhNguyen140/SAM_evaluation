@@ -1,16 +1,10 @@
-from skimage.transform import resize
 import os
-from multiprocessing import pool
 import pickle
 import numpy as np
-import nibabel as nib
-import matplotlib.pyplot as plt
-import cv2
 import torch
-import math
 import random
-from segment_anything import SamPredictor, sam_model_registry, SamAutomaticMaskGenerator
-from thanh.preprocess import preprocess_image
+from segment_anything import SamPredictor, sam_model_registry
+from functions.preprocess import preprocess_image
 
 
 def show_mask(mask, ax, random_color=False):
@@ -58,7 +52,7 @@ def get_masks(prompts, predictor):
 
     Args:
         prompts (list): List of lists of sampled points from ground truth
-        predictor (SAMPredictor): Predictor that has alsready a set image
+        predictor (SAMPredictor): Predictor that has already a set image
 
     Returns:
         np.array: 3D array with the masks (one for each class)
@@ -100,7 +94,7 @@ def get_logits(prompts, predictor):
     return masks
 
 
-def multiclass_prob(binary_logits):
+def multiclass_prob(binary_logits, hard_labels=False):
     """Get probabilities for multiclass classification.
 
     Args:
@@ -128,9 +122,13 @@ def multiclass_prob(binary_logits):
     bin_probs[mask] /= sum_probs[mask, None]
     prob_background[mask] = 0
 
-    multiclass_prob[..., : len(binary_logits)] = bin_probs
+    multiclass_prob[..., 1 : len(binary_logits) + 1] = bin_probs
     multiclass_prob[
-        ..., -1
+        ..., 0
     ] = prob_background  # Use the last channel for prob_background
+
+    if hard_labels == True:
+        predicted_labels = np.argmax(multiclass_prob, axis=-1)
+        return predicted_labels
 
     return multiclass_prob

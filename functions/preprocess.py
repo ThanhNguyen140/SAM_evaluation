@@ -61,32 +61,35 @@ if __name__ == "__main__":
         os.mkdir(output_dir)
     except:
         pass
+    gt_path = os.path.join(output_dir,"ground_truth")
+    img_path = os.path.join(output_dir,"images")
+    try:
+        os.mkdir(gt_path)
+        os.mkdir(img_path)
+    except:
+        pass
     for folder in os.listdir(path):
         sub_dir = os.path.join(path, folder)
         if not os.path.isfile(sub_dir) and folder != "preprocess":
             for sub_folder in os.listdir(sub_dir):
                 input_folder = os.path.join(sub_dir, sub_folder)
                 if not os.path.isfile(input_folder):
-                    output_folder = os.path.join(output_dir, sub_folder)
-                    try:
-                        os.mkdir(output_folder)
-                    except:
-                        pass
                     os.chdir(input_folder)
                     for file in glob.glob("*.nii.gz"):
                         if "gt" in file:
-                            image = nib.load(file)
-                            pre_image = preprocess_image(
-                                image, is_seg=True, keep_z_spacing=True
+                            gt_image = nib.load(file)
+                            gt_pre_image = preprocess_image(
+                                gt_image, is_seg=True, keep_z_spacing=True
                             )
-                            output = os.path.join(output_folder, file)
-                            f = gzip.GzipFile(output.replace(".nii.gz", ".npy.gz"), "w")
-                            np.save(f, pre_image)
-                        elif ("frame" in file) and ("gt" not in file):
-                            image = nib.load(file)
+                            
+                            image_file = file.replace("_gt","")
+                            image = nib.load(image_file)
                             pre_image = preprocess_image(
                                 image, is_seg=False, keep_z_spacing=True
                             )
-                            output = os.path.join(output_folder, file)
-                            f = gzip.GzipFile(output.replace(".nii.gz", ".npy.gz"), "w")
+                            gt_output = os.path.join(gt_path,image_file.replace("nii.gz","npy.gz"))
+                            gt_f = gzip.GzipFile(gt_output, "w")
+                            np.save(gt_f, gt_pre_image)
+                            output = os.path.join(img_path,image_file.replace("nii.gz","npy.gz"))
+                            f = gzip.GzipFile(output, "w")
                             np.save(f, pre_image)
