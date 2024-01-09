@@ -28,8 +28,9 @@ Metrics: IOU Score
 ## expected calibration error
 Also look into how sure the model is with the multiclass probabilities
 
-## store and give embeddings (Lisa)
+## store and give embeddings (Lisa) done
 
 
 # Look into torch DataSet and DataLoader
-# Save all embeddings, not only images but also points
+
+# Save all embeddings, not only images but also points (space problems)
