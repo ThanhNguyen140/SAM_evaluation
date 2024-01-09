@@ -17,7 +17,7 @@ Metrics: IOU Score
 ## different image modalities
 - different scanners
   
-# How to store the results
+# How to store the results (Lisa)
 
 - make results folder
 - keep class values
@@ -30,7 +30,11 @@ Also look into how sure the model is with the multiclass probabilities
 
 ## store and give embeddings (Lisa) done
 
-
-# Look into torch DataSet and DataLoader
+# analze class (Thanh)
+# Look into torch DataSet and DataLoader (Thanh)
 
 # Save all embeddings, not only images but also points (space problems)
+
+# draft presentation (Lisa - until Sunday)
+
+# image statistics (Lisa)
