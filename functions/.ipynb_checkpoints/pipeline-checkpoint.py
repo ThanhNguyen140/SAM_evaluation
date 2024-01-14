@@ -108,13 +108,13 @@ class analyze:
 
     def generate_score(batch_loader,metrics:list):
         results = {}
-        for batch in batch_loader:
+        for embedding,ground_truth in batch_loader:
             multiprocessing.set_start_method("spawn")
             p = Pool(4)
-            masks = p.map(self.generate_masks,batch)
+            masks = p.map(self.generate_masks,zip(embedding,ground_truth)
             for metric in metrics:
                 f = self.metrics[metric]
-                scores = p.map(self.scoring_function(f,masks,ground_truth))
+                scores = p.map(self.scoring_function(f,zip(masks,ground_truth)))
                 if metric not in results.keys():
                     results[metric] = scores
                 else:
