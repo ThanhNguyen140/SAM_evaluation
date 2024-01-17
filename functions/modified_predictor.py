@@ -1,6 +1,8 @@
+from typing import Optional, Tuple
 from segment_anything.utils.transforms import ResizeLongestSide
 from segment_anything import SamPredictor, sam_model_registry
 import torch
+from torch._tensor import Tensor
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 MODEL_TYPE = "vit_h"
@@ -26,7 +28,20 @@ class modifiedPredictor((SamPredictor)):
         """
         super().__init__(sam_model)
         self.transform = ResizeLongestSide(sam_model.image_encoder.img_size)
-        self.features = image_embedding
         self.is_image_set = True
         self.input_size = input_size
         self.original_size = original_size
+
+    def predict(self,image_embeddings, image_pe, sparse_prompt_embeddings, dense_prompt_embeddings, multimask_output=False):
+        low_res_masks, iou_predictions = self.model.mask_decoder(
+            image_embeddings,
+            image_pe,
+            sparse_prompt_embeddings,
+            dense_prompt_embeddings,
+            multimask_output=multimask_output,
+        )
+        # Upscale the masks to the original image resolution
+        masks = self.model.postprocess_masks(low_res_masks, self.input_size, self.original_size)
+        #masks_np = masks[0].detach().cpu().numpy()
+        #iou_predictions_np = iou_predictions[0].detach().cpu().numpy()
+        return masks
