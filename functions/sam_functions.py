@@ -47,6 +47,35 @@ def sample_from_class(ground_truth, target_class: int, n_points: int):
     return sampled_points
 
 
+def batch_sample_from_class(batch_size, ground_truth, target_class: int, n_points: int):
+    """
+    Randomly sample n points that belong to the target_class for one batch.
+
+    Arguments:
+    batch_size: integer, number of prompts that should be created
+    ground_truth: 2D-array (H,W), assigned labels of the original image
+    target_class: integer, class to which the sampled points should belong
+    n_points: number of points that should be returned
+
+    Returns:
+    torch.tensor of size (B,H,W) with n 1s in each of the B masks
+    """
+    masks = []
+
+    for _ in range(batch_size):
+        mask = torch.zeros_like(ground_truth)
+        class_indices = torch.nonzero(ground_truth == target_class, as_tuple=False)
+        sampled_indices = class_indices[
+            np.random.choice(class_indices.shape[0], n_points, replace=False)
+        ]
+        mask[sampled_indices[:, 0], sampled_indices[:, 1]] = 1
+        masks.append(mask.unsqueeze(0))  # unsqueeze to add a batch dimension
+
+    masks = torch.cat(masks, dim=0)
+
+    return masks
+
+
 def get_masks(prompts, predictor):
     """This function returns the models masks for a given list of prompts.
 
