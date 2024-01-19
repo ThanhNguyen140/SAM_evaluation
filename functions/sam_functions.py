@@ -58,22 +58,20 @@ def batch_sample_from_class(batch_size, ground_truth, target_class: int, n_point
     n_points: number of points that should be returned
 
     Returns:
-    torch.tensor of size (B,H,W) with n 1s in each of the B masks
+    [Tuple[torch.Tensor, torch.Tensor]], list length: batch_size, tensor length: n_points
+    [points, labels]
     """
-    masks = []
-
+    prompts = []
+    class_indices = torch.nonzero(ground_truth == target_class, as_tuple=False)
     for _ in range(batch_size):
-        mask = torch.zeros_like(ground_truth)
-        class_indices = torch.nonzero(ground_truth == target_class, as_tuple=False)
-        sampled_indices = class_indices[
+        points = class_indices[
             np.random.choice(class_indices.shape[0], n_points, replace=False)
         ]
-        mask[sampled_indices[:, 0], sampled_indices[:, 1]] = 1
-        masks.append(mask.unsqueeze(0))  # unsqueeze to add a batch dimension
-
-    masks = torch.cat(masks, dim=0)
-
-    return masks
+        points[:, [0, 1]] = points[:, [1, 0]]  # swap axes
+        labels = torch.tensor([1] * len(points))
+        prompt = (points, labels)
+        prompts.append(prompt)
+    return prompts
 
 
 def get_masks(prompts, predictor):
