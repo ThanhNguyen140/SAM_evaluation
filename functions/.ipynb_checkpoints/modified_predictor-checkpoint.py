@@ -1,10 +1,12 @@
+from typing import Optional, Tuple
 from segment_anything.utils.transforms import ResizeLongestSide
 from segment_anything import SamPredictor, sam_model_registry
 import torch
+from torch._tensor import Tensor
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 MODEL_TYPE = "vit_h"
-CHECKPOINT_PATH = "sam_vit_h_4b8939.pth"
+CHECKPOINT_PATH = "../sam_vit_h_4b8939.pth"
 sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT_PATH)
 sam.to(device=DEVICE)
 
@@ -26,7 +28,23 @@ class modifiedPredictor((SamPredictor)):
         """
         super().__init__(sam_model)
         self.transform = ResizeLongestSide(sam_model.image_encoder.img_size)
-        self.features = image_embedding
         self.is_image_set = True
         self.input_size = input_size
         self.original_size = original_size
+        self.features = image_embedding
+
+    def predict2(self,image_embeddings, point_coords,point_labels, multimask_output=False):
+        point_coords = self.transform.apply_coords(point_coords, self.original_size)
+        coords_torch = torch.as_tensor(point_coords, dtype=torch.float, device=self.device)
+        labels_torch = torch.as_tensor(point_labels, dtype=torch.int, device=self.device)
+        coords_torch, labels_torch = coords_torch[None, :, :], labels_torch[None, :]
+        box_torch,mask_input_torch = None,None
+        masks, iou_predictions, low_res_masks = self.predict_torch(
+            coords_torch,
+            labels_torch,
+            box_torch,
+            mask_input_torch,
+            multimask_output,
+            return_logits=True,
+        )
+        return masks

@@ -31,17 +31,20 @@ class modifiedPredictor((SamPredictor)):
         self.is_image_set = True
         self.input_size = input_size
         self.original_size = original_size
+        self.features = image_embedding
 
-    def predict(self,image_embeddings, image_pe, sparse_prompt_embeddings, dense_prompt_embeddings, multimask_output=False):
-        low_res_masks, iou_predictions = self.model.mask_decoder(
-            image_embeddings,
-            image_pe,
-            sparse_prompt_embeddings,
-            dense_prompt_embeddings,
-            multimask_output=multimask_output,
+    def predict2(self,image_embeddings, point_coords,point_labels, multimask_output=False):
+        point_coords = self.transform.apply_coords(point_coords, self.original_size)
+        coords_torch = torch.as_tensor(point_coords, dtype=torch.float, device=self.device)
+        labels_torch = torch.as_tensor(point_labels, dtype=torch.int, device=self.device)
+        coords_torch, labels_torch = coords_torch[None, :, :], labels_torch[None, :]
+        box_torch,mask_input_torch = None,None
+        masks, iou_predictions, low_res_masks = self.predict_torch(
+            coords_torch,
+            labels_torch,
+            box_torch,
+            mask_input_torch,
+            multimask_output,
+            return_logits=True,
         )
-        # Upscale the masks to the original image resolution
-        masks = self.model.postprocess_masks(low_res_masks, self.input_size, self.original_size)
-        #masks_np = masks[0].detach().cpu().numpy()
-        #iou_predictions_np = iou_predictions[0].detach().cpu().numpy()
         return masks

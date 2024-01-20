@@ -106,20 +106,20 @@ class analyze:
             scores[:,c-1] = metric(pred,target)
         return scores
 
-    def generate_score(batch_loader,metrics:list):
-        results = {}
-        for embedding,ground_truth in batch_loader:
-            multiprocessing.set_start_method("spawn")
-            p = Pool(4)
-            masks = p.map(self.generate_masks,zip(embedding,ground_truth)
-            for metric in metrics:
-                f = self.metrics[metric]
-                scores = p.map(self.scoring_function(f,zip(masks,ground_truth)))
-                if metric not in results.keys():
-                    results[metric] = scores
-                else:
-                    results[metric].append(scores)
-        return results
+    #def generate_score(batch_loader,metrics:list):
+        #results = {}
+        #for embedding,ground_truth in batch_loader:
+            #multiprocessing.set_start_method("spawn")
+            #p = Pool(4)
+            #masks = p.map(self.generate_masks,zip(embedding,ground_truth)
+            #for metric in metrics:
+                #f = self.metrics[metric]
+                #scores = p.map(self.scoring_function(f,zip(masks,ground_truth)))
+                #if metric not in results.keys():
+                    #results[metric] = scores
+                #else:
+                    #results[metric].append(scores)
+        #return results
 
     
 def gzip_file(file,mode,image = False):
