@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 from segment_anything.utils.transforms import ResizeLongestSide
 import torch
-
+from segment_anything import sam_model_registry
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 MODEL_TYPE = "vit_h"
@@ -10,16 +10,12 @@ sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT_PATH)
 sam.to(device=DEVICE)
 
 
-<<<<<<< HEAD
 class modifiedPredictor:
-=======
-class modifiedPredictor(sam):
->>>>>>> 5548f99df1ce49e352412430a690edf84f31f6d7
     """Subclass of SamPredictor class. This class allows the generation of masks with the same syntax as the parent class for predict function
     using image embeddings
     """
 
-    def __init__(self):
+    def __init__(self, model = sam):
         """Input for subclass of SamPredictor
 
         Args:
@@ -28,9 +24,9 @@ class modifiedPredictor(sam):
             the orginal size of image because the image is resized according to sam model before generating embeddings
             original_size (tuple): original size of the image in 2D (H x W)
             sam_model (sam model, optional): Defaults to sam.
-        """
-        super().__init__()
-        self.transform = ResizeLongestSide(self.image_encoder.img_size)
+        """    
+        self.model = model
+        self.transform = ResizeLongestSide(self.model.image_encoder.img_size)
         self.input_size = (1024, 864)
         self.original_size = (256,216)
 
@@ -51,20 +47,20 @@ class modifiedPredictor(sam):
 
         points = (point_coords,point_labels)
 
-        sparse_embeddings, dense_embeddings = self.prompt_encoder(
+        sparse_embeddings, dense_embeddings = self.model.prompt_encoder(
                 points=points,
                 boxes= None,
                 masks=  None
             )
         
-        low_res_masks, iou_predictions = self.mask_decoder(
-                image_embeddings=curr_embedding.unsqueeze(0),
-                image_pe=self.prompt_encoder.get_dense_pe(),
+        low_res_masks, iou_predictions = self.model.mask_decoder(
+                image_embeddings.unsqueeze(0),
+                image_pe=self.model.prompt_encoder.get_dense_pe(),
                 sparse_prompt_embeddings=sparse_embeddings,
                 dense_prompt_embeddings=dense_embeddings,
                 multimask_output=multimask_output,
             )
-        masks = self.postprocess_masks(
+        masks = self.model.postprocess_masks(
             low_res_masks,
             input_size= self.input_size,
             original_size= self.original_size,
