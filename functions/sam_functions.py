@@ -67,8 +67,9 @@ def batch_sample_from_class(
     prompts = []
     class_indices = torch.nonzero(ground_truth == target_class, as_tuple=False)
     other_class_indices = torch.nonzero(
-        (ground_truth != target_class) | (ground_truth == 0), as_tuple=False
+        (ground_truth != target_class) & (ground_truth != 0), as_tuple=False
     )
+
     if len(class_indices) < n_foreground:  # class has not as many pixels
         n_foreground = len(class_indices)  # change number of points to sample
         print(f"n_foreground was reduced to {n_foreground}.")
@@ -84,7 +85,7 @@ def batch_sample_from_class(
         points[:, [0, 1]] = points[:, [1, 0]]  # swap axes
         labels = torch.tensor([1] * len(points))
         if n_background > 0:
-            background_points = class_indices[
+            background_points = other_class_indices[
                 np.random.choice(
                     other_class_indices.shape[0], n_background, replace=False
                 )
