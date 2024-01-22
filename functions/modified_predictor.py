@@ -11,7 +11,7 @@ sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT_PATH)
 sam.to(device=DEVICE)
 
 
-class modifiedPredictor((SamPredictor)):
+class modifiedPredictor:
     """Subclass of SamPredictor class. This class allows the generation of masks with the same syntax as the parent class for predict function
     using image embeddings
     """
