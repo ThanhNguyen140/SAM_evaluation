@@ -1,8 +1,7 @@
 from typing import Optional, Tuple
 from segment_anything.utils.transforms import ResizeLongestSide
-from segment_anything import SamPredictor, sam_model_registry
 import torch
-from torch._tensor import Tensor
+
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 MODEL_TYPE = "vit_h"
@@ -11,12 +10,16 @@ sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT_PATH)
 sam.to(device=DEVICE)
 
 
+<<<<<<< HEAD
 class modifiedPredictor:
+=======
+class modifiedPredictor(sam):
+>>>>>>> 5548f99df1ce49e352412430a690edf84f31f6d7
     """Subclass of SamPredictor class. This class allows the generation of masks with the same syntax as the parent class for predict function
     using image embeddings
     """
 
-    def __init__(self, image_embedding, input_size, original_size, sam_model=sam):
+    def __init__(self):
         """Input for subclass of SamPredictor
 
         Args:
@@ -26,25 +29,46 @@ class modifiedPredictor:
             original_size (tuple): original size of the image in 2D (H x W)
             sam_model (sam model, optional): Defaults to sam.
         """
-        super().__init__(sam_model)
-        self.transform = ResizeLongestSide(sam_model.image_encoder.img_size)
-        self.is_image_set = True
-        self.input_size = input_size
-        self.original_size = original_size
-        self.features = image_embedding
+        super().__init__()
+        self.transform = ResizeLongestSide(self.image_encoder.img_size)
+        self.input_size = (1024, 864)
+        self.original_size = (256,216)
 
-    def predict2(self,image_embeddings, point_coords,point_labels, multimask_output=False):
-        point_coords = self.transform.apply_coords(point_coords, self.original_size)
-        coords_torch = torch.as_tensor(point_coords, dtype=torch.float, device=self.device)
-        labels_torch = torch.as_tensor(point_labels, dtype=torch.int, device=self.device)
-        coords_torch, labels_torch = coords_torch[None, :, :], labels_torch[None, :]
-        box_torch,mask_input_torch = None,None
-        masks, iou_predictions, low_res_masks = self.predict_torch(
-            coords_torch,
-            labels_torch,
-            box_torch,
-            mask_input_torch,
-            multimask_output,
-            return_logits=True,
+    def predict(self,image_embeddings, point_coords,point_labels, multimask_output=False):
+        """Predict mask logits by inputting image_embeddings, point coords and point_labels
+
+        Args:
+            image_embeddings (torch.tensor) 
+            point_coords (torch.tensor): tensor of (B x N x 2) point coords from the original images 
+            point_labels (torch.tensor): tensor of (B x N) labels for point coords (0 for background and 1 for foreground)
+            multimask_output (bool, optional): Different masks per image and point coords combination. Defaults to False.
+
+        Returns:
+            masks (torch.tensor): (B x H x W) mask logits 
+        """
+
+        point_coords = self.transform.apply_coords_torch(point_coords, self.original_size)
+
+        points = (point_coords,point_labels)
+
+        sparse_embeddings, dense_embeddings = self.prompt_encoder(
+                points=points,
+                boxes= None,
+                masks=  None
+            )
+        
+        low_res_masks, iou_predictions = self.mask_decoder(
+                image_embeddings=curr_embedding.unsqueeze(0),
+                image_pe=self.prompt_encoder.get_dense_pe(),
+                sparse_prompt_embeddings=sparse_embeddings,
+                dense_prompt_embeddings=dense_embeddings,
+                multimask_output=multimask_output,
+            )
+        masks = self.postprocess_masks(
+            low_res_masks,
+            input_size= self.input_size,
+            original_size= self.original_size,
         )
-        return masks
+
+        masks_cpu = masks.detach().cpu()
+        return masks_cpu
