@@ -47,7 +47,9 @@ def sample_from_class(ground_truth, target_class: int, n_points: int):
     return sampled_points
 
 
-def batch_sample_from_class(batch_size, ground_truth, target_class: int, n_points: int):
+def batch_sample_from_class(
+    batch_size, ground_truth, target_class: int, n_foreground: int, n_background=0
+):
     """
     Randomly sample n points that belong to the target_class for one batch.
 
@@ -55,7 +57,8 @@ def batch_sample_from_class(batch_size, ground_truth, target_class: int, n_point
     batch_size: integer, number of prompts that should be created
     ground_truth: 2D-array (H,W), assigned labels of the original image
     target_class: integer, class to which the sampled points should belong
-    n_points: number of points that should be returned
+    n_foreground: number of points that should be sampled from the foreground
+    n_background: number of points that should be sampled from the background (default=0)
 
     Returns:
     [Tuple[torch.Tensor, torch.Tensor]], list length: batch_size, tensor length: n_points
@@ -63,12 +66,33 @@ def batch_sample_from_class(batch_size, ground_truth, target_class: int, n_point
     """
     prompts = []
     class_indices = torch.nonzero(ground_truth == target_class, as_tuple=False)
+    other_class_indices = torch.nonzero(
+        (ground_truth != target_class) | (ground_truth == 0), as_tuple=False
+    )
+    if len(class_indices) < n_foreground:  # class has not as many pixels
+        n_foreground = len(class_indices)  # change number of points to sample
+        print(f"n_foreground was reduced to {n_foreground}.")
+
+    if len(other_class_indices) < n_background:  # class has not as many pixels
+        n_background = len(other_class_indices)  # change number of points to sample
+        print(f"n_background was reduced to {n_background}.")
+
     for _ in range(batch_size):
         points = class_indices[
-            np.random.choice(class_indices.shape[0], n_points, replace=False)
+            np.random.choice(class_indices.shape[0], n_foreground, replace=False)
         ]
         points[:, [0, 1]] = points[:, [1, 0]]  # swap axes
         labels = torch.tensor([1] * len(points))
+        if n_background > 0:
+            background_points = class_indices[
+                np.random.choice(
+                    other_class_indices.shape[0], n_background, replace=False
+                )
+            ]
+            background_points[:, [0, 1]] = background_points[:, [1, 0]]  # swap axes
+            background_labels = torch.tensor([0] * len(background_points))
+            points = torch.cat([points, background_points], dim=0)
+            labels = torch.cat([labels, background_labels], dim=0)
         prompt = (points, labels)
         prompts.append(prompt)
     return prompts
