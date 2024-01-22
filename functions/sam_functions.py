@@ -64,7 +64,8 @@ def batch_sample_from_class(
     [Tuple[torch.Tensor, torch.Tensor]], list length: batch_size, tensor length: n_points
     [points, labels]
     """
-    prompts = []
+    batched_points = []
+    batched_labels = []
     class_indices = torch.nonzero(ground_truth == target_class, as_tuple=False)
     other_class_indices = torch.nonzero(
         (ground_truth != target_class) & (ground_truth != 0), as_tuple=False
@@ -94,9 +95,15 @@ def batch_sample_from_class(
             background_labels = torch.tensor([0] * len(background_points))
             points = torch.cat([points, background_points], dim=0)
             labels = torch.cat([labels, background_labels], dim=0)
-        prompt = (points, labels)
-        prompts.append(prompt)
-    return prompts
+
+        batched_points.append(points)
+        batched_labels.append(labels)
+
+    # Convert lists to tensors
+    batched_points = torch.stack(batched_points)
+    batched_labels = torch.stack(batched_labels)
+
+    return batched_points, batched_labels
 
 
 def get_masks(prompts, predictor):
