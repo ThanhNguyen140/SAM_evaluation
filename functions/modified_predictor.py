@@ -30,11 +30,12 @@ class modifiedPredictor:
         self.input_size = (1024, 864)
         self.original_size = (256,216)
 
+    @torch.no_grad()
     def predict(self,image_embeddings, point_coords,point_labels, multimask_output=False):
         """Predict mask logits by inputting image_embeddings, point coords and point_labels
 
         Args:
-            image_embeddings (torch.tensor) 
+            image_embeddings (torch.tensor): tensor of (1 x 256 x 64 x 64) embeddings of one image
             point_coords (torch.tensor): tensor of (B x N x 2) point coords from the original images 
             point_labels (torch.tensor): tensor of (B x N) labels for point coords (0 for background and 1 for foreground)
             multimask_output (bool, optional): Different masks per image and point coords combination. Defaults to False.
@@ -66,5 +67,7 @@ class modifiedPredictor:
             original_size= self.original_size,
         )
 
-        masks_cpu = masks.detach().cpu()
+        masks_cpu = masks.detach()
+        point_coords.cpu()
+        point_labels.cpu()
         return masks_cpu
