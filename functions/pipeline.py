@@ -58,7 +58,7 @@ class analyze:
         self.prompt_class_1 = prompt_class_1
         self.prompt_class_2 = prompt_class_2
         self.prompt_class_3 = prompt_class_3
-        for embedding, ground_truth,pr1,pr2,pr3 in zip(embeddings,ground_truths,self.prompt_class_1,self.prompt_class_2,self.prompt_class_3):
+        for embedding, ground_truths,pr1,pr2,pr3 in zip(embeddings,ground_truths,self.prompt_class_1,self.prompt_class_2,self.prompt_class_3):
 
             logit_class_1 = self.mp(embedding,pr1[0].cuda(),pr1[1].cuda())
             logit_class_2 = self.mp(embedding,pr2[0].cuda(),pr2[1].cuda())
