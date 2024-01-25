@@ -60,18 +60,24 @@ class analyze:
         self.prompt_class_1 = prompt_class_1
         self.prompt_class_2 = prompt_class_2
         self.prompt_class_3 = prompt_class_3
+        class_1 = []
+        class_2 = []
+        class_3 = []
         for embedding, pr1,pr2,pr3 in zip(self.embeddings,self.prompt_class_1,self.prompt_class_2,self.prompt_class_3):
 
-            logit_class_1 = self.mp(embedding,pr1[0].cuda(),pr1[1].cuda())
-            logit_class_2 = self.mp(embedding,pr2[0].cuda(),pr2[1].cuda())
-            logit_class_3 = self.mp(embedding,pr3[0].cuda(),pr3[1].cuda())
-
-            logit_stack = torch.stack([logit_class_1,logit_class_2,logit_class_3],dim = 1)
-            
-            final_masks = multiclass_prob(logit_stack, hard_labels=True)
+            logit_class_1 = self.mp.predict(embedding,pr1[0].cuda(),pr1[1].cuda())
+            logit_class_2 = self.mp.predict(embedding,pr2[0].cuda(),pr2[1].cuda())
+            logit_class_3 = self.mp.predict(embedding,pr3[0].cuda(),pr3[1].cuda())
+            class_1.append(logit_class_1)
+            class_2.append(logit_class_2)
+            class_3.append(logit_class_3)
+            logit_stack = torch.cat([logit_class_1,logit_class_2,logit_class_3],dim = 1)
+            print(logit_stack.shape)
+            final_masks = multiclass_prob_batched(logit_stack, hard_labels=True)
             batch_masks.append(final_masks)
-        self.batch_masks = torch.stack((batch_masks), dim = 1)
-        return self.batch_masks
+        #self.batch_masks = torch.stack((batch_masks), dim = 1)
+        #return self.batch_masks
+        return batch_masks, class_1,class_2,class_3
 
     def scoring_function(self, f):
         """Generate scores for the predicted mask for each class
@@ -89,7 +95,7 @@ class analyze:
         scores = torch.zeros([self.gt_cuda.shape[0],self.batch_size, 3], device= torch.device("cuda:0"))
         for c in [1, 2, 3] :
             pred = torch.where(self.batched_masks == c, 1, 0)
-            target = torch.where(self.gt_cuda == c, 1, 0))
+            target = torch.where(self.gt_cuda == c, 1, 0)
             metric = f()
             scores[:,:,c - 1] = metric(pred, target)
         return scores
