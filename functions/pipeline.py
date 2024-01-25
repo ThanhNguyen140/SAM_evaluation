@@ -72,10 +72,14 @@ class analyze:
             class_2.append(logit_class_2)
             class_3.append(logit_class_3)
             logit_stack = torch.cat([logit_class_1,logit_class_2,logit_class_3],dim = 1)
-            print(logit_stack.shape)
+            #print(logit_stack.shape)
             final_masks = multiclass_prob_batched(logit_stack, hard_labels=True)
             batch_masks.append(final_masks)
-        #self.batch_masks = torch.stack((batch_masks), dim = 1)
+            del logit_class_1
+            del logit_class_2
+            del logit_class_3
+        #batch_masks = torch.stack((batch_masks), dim = 1)
+        self.batch_masks = batch_masks[:,0,:,:]
         #return self.batch_masks
         return batch_masks, class_1,class_2,class_3
 
