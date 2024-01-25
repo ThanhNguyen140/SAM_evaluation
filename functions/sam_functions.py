@@ -191,3 +191,42 @@ def multiclass_prob(binary_logits, hard_labels=False):
         return predicted_labels
 
     return multiclass_prob
+
+
+def multiclass_prob_batched(logits_stack, hard_labels=True):
+    """
+    Get probabilities for multiclass classification for batched input.
+
+    Args:
+        logits_stack (torch.tensor): binary logits for 3 classes for batched prompts;
+        shape: [B,3,H,W]
+        hard_labels (bool, optional): _description_. Defaults to True.
+
+    Returns:
+        torch.tensor: multiclass probabilities [B,4,H,W] or
+        for hard labels the segmentation masks [B,1,H,W]
+    """
+    sigmoid_logits = torch.sigmoid(logits_stack)  # apply sigmoid function to channels
+    background_channel = torch.zeros_like(
+        sigmoid_logits[:, 0:1, :, :]
+    )  # Initialize a channel with zeros
+    channel_sum = torch.sum(sigmoid_logits, dim=1, keepdim=True)
+    mask = channel_sum > 1  # where to apply heuristic
+    softmax_tensor = torch.where(
+        mask, torch.nn.functional.softmax(sigmoid_logits, dim=1), sigmoid_logits
+    )  # apply softmax
+
+    multi_class_tensor = torch.cat(
+        [background_channel, softmax_tensor], dim=1
+    )  # add background channel
+
+    multi_class_tensor[:, 0:1, :, :] = torch.where(
+        ~mask, 1 - channel_sum, multi_class_tensor[:, 0:1, :, :]
+    )  # calculate background probabilities
+    if hard_labels:
+        segmentation_masks = segmentation_masks = torch.argmax(
+            softmax_tensor, dim=1, keepdim=True
+        )  # choose index of channel with the highest value
+        return segmentation_masks
+
+    return multi_class_tensor

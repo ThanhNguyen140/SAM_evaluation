@@ -38,5 +38,9 @@ Also look into how sure the model is with the multiclass probabilities
 # draft presentation (Lisa - until Sunday) done
 
 # image statistics (Lisa) done
+
 # rewrite sample function for batching (Lisa)
+
 # make everything batchable
+
+# built prompts based on errors from previous inputs 
