@@ -224,8 +224,8 @@ def multiclass_prob_batched(logits_stack, hard_labels=True):
         ~mask, 1 - channel_sum, multi_class_tensor[:, 0:1, :, :]
     )  # calculate background probabilities
     if hard_labels:
-        segmentation_masks = segmentation_masks = torch.argmax(
-            softmax_tensor, dim=1, keepdim=True
+        segmentation_masks = torch.argmax(
+            multi_class_tensor, dim=1, keepdim=True
         )  # choose index of channel with the highest value
         return segmentation_masks
 
