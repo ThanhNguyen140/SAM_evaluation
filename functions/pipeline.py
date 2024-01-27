@@ -60,9 +60,6 @@ class analyze:
         self.prompt_class_1 = prompt_class_1
         self.prompt_class_2 = prompt_class_2
         self.prompt_class_3 = prompt_class_3
-        class_1 = []
-        class_2 = []
-        class_3 = []
         for embedding, pr1,pr2,pr3 in zip(self.embeddings,self.prompt_class_1,self.prompt_class_2,self.prompt_class_3):
 
             logit_class_1 = self.mp.predict(embedding,pr1[0].cuda(),pr1[1].cuda())
@@ -78,10 +75,9 @@ class analyze:
             del logit_class_1
             del logit_class_2
             del logit_class_3
-        #batch_masks = torch.stack((batch_masks), dim = 1)
         self.batch_masks = batch_masks[:,0,:,:]
-        #return self.batch_masks
-        return batch_masks, class_1,class_2,class_3
+        self.embeddings.cpu()
+        return self.batch_masks
 
     def scoring_function(self, f):
         """Generate scores for the predicted mask for each class
@@ -104,21 +100,41 @@ class analyze:
             scores[:,:,c - 1] = metric(pred, target)
         return scores
 
-    # def generate_score(batch_loader,metrics:list):
-    # results = {}
-    # for embedding,ground_truth in batch_loader:
-    # multiprocessing.set_start_method("spawn")
-    # p = Pool(4)
-    # masks = p.map(self.generate_masks,zip(embedding,ground_truth)
-    # for metric in metrics:
-    # f = self.metrics[metric]
-    # scores = p.map(self.scoring_function(f,zip(masks,ground_truth)))
-    # if metric not in results.keys():
-    # results[metric] = scores
-    # else:
-    # results[metric].append(scores)
-    # return results
+    def get_results(self,dice_scores:torch.Tensor,iou_scores:torch.Tensor,accuracy_scores:torch.Tensor,num_prompt_class1:tuple[int,int], num_prompt_class2:tuple[int,int],num_prompt_class3:tuple[int,int]):
+        """
 
+        Args:
+            dice_scores (torch.Tensor): _description_
+            iou_scores (torch.Tensor): _description_
+            accuracy_scores (torch.Tensor): _description_
+            num_prompt_class1 (tuple[int,int]): _description_
+            num_prompt_class2 (tuple[int,int]): _description_
+            num_prompt_class3 (tuple[int,int]): _description_
+        """
+        results = []
+        for idx in range(dice_scores.shape[0]):
+            for b in range(dice_scores.shape[1]):
+                result = [
+                    idx,
+                    num_prompt_class1[0],
+                    num_prompt_class2[0],
+                    num_prompt_class3[0],
+                    num_prompt_class1[1],
+                    num_prompt_class2[1],
+                    num_prompt_class3[1],
+                    dice_scores[idx,b,0],
+                    dice_scores[idx,b,1],
+                    dice_scores[idx,b,2],
+                    iou_scores[idx,b,0],
+                    iou_scores[idx,b,1],
+                    iou_scores[idx,b,2],
+                    accuracy_scores[idx,b,0],
+                    accuracy_scores[idx,b,1],
+                    accuracy_scores[idx,b,2]
+                ]
+                results.append(result)
+        return results
+            
 
 def gzip_file(file, mode, image=False):
     f = gzip.GzipFile(file, mode)
@@ -164,18 +180,22 @@ class Results:
     def __init__(self, path_to_output_file, experiment_name):
         self.path = f"{path_to_output_file}/{experiment_name}.csv"
         self.column_names = [
-            "id",
             "image_id",
-            "Dataset",
             "f_points_class_1",
             "f_points_class_2",
             "f_points_class_3",
             "b_points_class_1",
             "b_points_class_2",
             "b_points_class_3",
-            "dice",
-            "IOU",
-            "accuracy",
+            "dice_class_1",
+            "dice_class_2",
+            "dice_class_3",
+            "IOU_class_1",
+            "IOU_class_2",
+            "IOU_class_3",
+            "accuracy_class_1",
+            "accuracy_class_2",
+            "accuracy_class_3"
         ]  # think about column names, class scores?
 
         # Initialize the file with column names
