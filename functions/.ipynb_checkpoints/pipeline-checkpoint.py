@@ -60,24 +60,30 @@ class analyze:
         self.prompt_class_1 = prompt_class_1
         self.prompt_class_2 = prompt_class_2
         self.prompt_class_3 = prompt_class_3
-        class_1 = []
-        class_2 = []
-        class_3 = []
         for embedding, pr1,pr2,pr3 in zip(self.embeddings,self.prompt_class_1,self.prompt_class_2,self.prompt_class_3):
-
-            logit_class_1 = self.mp.predict(embedding,pr1[0].cuda(),pr1[1].cuda())
-            logit_class_2 = self.mp.predict(embedding,pr2[0].cuda(),pr2[1].cuda())
-            logit_class_3 = self.mp.predict(embedding,pr3[0].cuda(),pr3[1].cuda())
-            class_1.append(logit_class_1)
-            class_2.append(logit_class_2)
-            class_3.append(logit_class_3)
+            if list(pr1[1].unique()) != [tensor(0)]:
+                logit_class_1 = self.mp.predict(embedding,pr1[0].cuda(),pr1[1].cuda())
+            else:
+                logit_class_1 = torch.full((self.batch_size,1,256,216),-7).cuda()
+            if list(pr2[1].unique()) != [tensor(0)]:    
+                logit_class_2 = self.mp.predict(embedding,pr2[0].cuda(),pr2[1].cuda())
+            else:
+                logit_class_2 = torch.full((self.batch_size,1,256,216),-7).cuda()
+            if list(pr3[1].unique()) != [tensor(0)]:    
+                logit_class_3 = self.mp.predict(embedding,pr3[0].cuda(),pr3[1].cuda())
+            else:
+                logit_class_3 = torch.full((self.batch_size,1,256,216),-7).cuda()
             logit_stack = torch.cat([logit_class_1,logit_class_2,logit_class_3],dim = 1)
-            print(logit_stack.shape)
+            
             final_masks = multiclass_prob_batched(logit_stack, hard_labels=True)
             batch_masks.append(final_masks)
-        #self.batch_masks = torch.stack((batch_masks), dim = 1)
-        #return self.batch_masks
-        return batch_masks, class_1,class_2,class_3
+            del logit_class_1
+            del logit_class_2
+            del logit_class_3
+        batch_masks = torch.stack(batch_masks,dim = 0)
+        self.batch_masks = batch_masks[:,:,0,:,:]
+        self.embeddings = self.embeddings.cpu()
+        return self.batch_masks
 
     def scoring_function(self, f):
         """Generate scores for the predicted mask for each class
@@ -90,31 +96,55 @@ class analyze:
         """
         # Generate an empty tensor with 1 x C with C as number of classes
         self.gt_cuda = torch.as_tensor(self.ground_truths, dtype = torch.int, device = torch.device("cuda:0"))
-        self.gt_cuda = self.gt_cuda().unsqueeze(1)
+        self.gt_cuda = torch.unsqueeze(self.gt_cuda, dim = 1)
         self.gt_cuda = self.gt_cuda.repeat(1,self.batch_size,1,1)
         scores = torch.zeros([self.gt_cuda.shape[0],self.batch_size, 3], device= torch.device("cuda:0"))
         for c in [1, 2, 3] :
-            pred = torch.where(self.batched_masks == c, 1, 0)
-            target = torch.where(self.gt_cuda == c, 1, 0)
-            metric = f()
-            scores[:,:,c - 1] = metric(pred, target)
-        return scores
+            preds = torch.where(self.batch_masks == c, 1, 0)
+            targets = torch.where(self.gt_cuda == c, 1, 0)
+            metric = f().to(torch.device("cuda:0"))
+            for idx in range(preds.shape[0]):
+                for b in range(preds.shape[1]):
+                    scores[idx,b,c - 1] = metric(preds[idx,b,:,:], targets[idx,b,:,:])
+        self.gt_cuda = self.gt_cuda.cpu()
+        self.batch_masks = self.batch_masks.cpu()
+        return scores.cpu()
 
-    # def generate_score(batch_loader,metrics:list):
-    # results = {}
-    # for embedding,ground_truth in batch_loader:
-    # multiprocessing.set_start_method("spawn")
-    # p = Pool(4)
-    # masks = p.map(self.generate_masks,zip(embedding,ground_truth)
-    # for metric in metrics:
-    # f = self.metrics[metric]
-    # scores = p.map(self.scoring_function(f,zip(masks,ground_truth)))
-    # if metric not in results.keys():
-    # results[metric] = scores
-    # else:
-    # results[metric].append(scores)
-    # return results
+    def get_results(self,dice_scores:torch.Tensor,iou_scores:torch.Tensor,accuracy_scores:torch.Tensor,num_prompt_class1:tuple[int,int], num_prompt_class2:tuple[int,int],num_prompt_class3:tuple[int,int]):
+        """
 
+        Args:
+            dice_scores (torch.Tensor): _description_
+            iou_scores (torch.Tensor): _description_
+            accuracy_scores (torch.Tensor): _description_
+            num_prompt_class1 (tuple[int,int]): _description_
+            num_prompt_class2 (tuple[int,int]): _description_
+            num_prompt_class3 (tuple[int,int]): _description_
+        """
+        results = []
+        for idx in range(dice_scores.shape[0]):
+            for b in range(dice_scores.shape[1]):
+                result = [
+                    idx,
+                    num_prompt_class1[0],
+                    num_prompt_class2[0],
+                    num_prompt_class3[0],
+                    num_prompt_class1[1],
+                    num_prompt_class2[1],
+                    num_prompt_class3[1],
+                    int(dice_scores[idx,b,0]),
+                    int(dice_scores[idx,b,1]),
+                    int(dice_scores[idx,b,2]),
+                    int(iou_scores[idx,b,0]),
+                    int(iou_scores[idx,b,1]),
+                    int(iou_scores[idx,b,2]),
+                    int(accuracy_scores[idx,b,0]),
+                    int(accuracy_scores[idx,b,1]),
+                    int(accuracy_scores[idx,b,2])
+                ]
+                results.append(result)
+        return results
+            
 
 def gzip_file(file, mode, image=False):
     f = gzip.GzipFile(file, mode)
@@ -160,18 +190,22 @@ class Results:
     def __init__(self, path_to_output_file, experiment_name):
         self.path = f"{path_to_output_file}/{experiment_name}.csv"
         self.column_names = [
-            "id",
             "image_id",
-            "Dataset",
             "f_points_class_1",
             "f_points_class_2",
             "f_points_class_3",
             "b_points_class_1",
             "b_points_class_2",
             "b_points_class_3",
-            "dice",
-            "IOU",
-            "accuracy",
+            "dice_class_1",
+            "dice_class_2",
+            "dice_class_3",
+            "IOU_class_1",
+            "IOU_class_2",
+            "IOU_class_3",
+            "accuracy_class_1",
+            "accuracy_class_2",
+            "accuracy_class_3"
         ]  # think about column names, class scores?
 
         # Initialize the file with column names

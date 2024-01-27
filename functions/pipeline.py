@@ -61,22 +61,28 @@ class analyze:
         self.prompt_class_2 = prompt_class_2
         self.prompt_class_3 = prompt_class_3
         for embedding, pr1,pr2,pr3 in zip(self.embeddings,self.prompt_class_1,self.prompt_class_2,self.prompt_class_3):
-
-            logit_class_1 = self.mp.predict(embedding,pr1[0].cuda(),pr1[1].cuda())
-            logit_class_2 = self.mp.predict(embedding,pr2[0].cuda(),pr2[1].cuda())
-            logit_class_3 = self.mp.predict(embedding,pr3[0].cuda(),pr3[1].cuda())
-            class_1.append(logit_class_1)
-            class_2.append(logit_class_2)
-            class_3.append(logit_class_3)
+            if list(pr1[1].unique()) != [tensor(0)]:
+                logit_class_1 = self.mp.predict(embedding,pr1[0].cuda(),pr1[1].cuda())
+            else:
+                logit_class_1 = torch.full((self.batch_size,1,256,216),-7).cuda()
+            if list(pr2[1].unique()) != [tensor(0)]:    
+                logit_class_2 = self.mp.predict(embedding,pr2[0].cuda(),pr2[1].cuda())
+            else:
+                logit_class_2 = torch.full((self.batch_size,1,256,216),-7).cuda()
+            if list(pr3[1].unique()) != [tensor(0)]:    
+                logit_class_3 = self.mp.predict(embedding,pr3[0].cuda(),pr3[1].cuda())
+            else:
+                logit_class_3 = torch.full((self.batch_size,1,256,216),-7).cuda()
             logit_stack = torch.cat([logit_class_1,logit_class_2,logit_class_3],dim = 1)
-            #print(logit_stack.shape)
+            
             final_masks = multiclass_prob_batched(logit_stack, hard_labels=True)
             batch_masks.append(final_masks)
             del logit_class_1
             del logit_class_2
             del logit_class_3
-        self.batch_masks = batch_masks[:,0,:,:]
-        self.embeddings.cpu()
+        batch_masks = torch.stack(batch_masks,dim = 0)
+        self.batch_masks = batch_masks[:,:,0,:,:]
+        self.embeddings = self.embeddings.cpu()
         return self.batch_masks
 
     def scoring_function(self, f):
@@ -90,15 +96,19 @@ class analyze:
         """
         # Generate an empty tensor with 1 x C with C as number of classes
         self.gt_cuda = torch.as_tensor(self.ground_truths, dtype = torch.int, device = torch.device("cuda:0"))
-        self.gt_cuda = self.gt_cuda().unsqueeze(1)
+        self.gt_cuda = torch.unsqueeze(self.gt_cuda, dim = 1)
         self.gt_cuda = self.gt_cuda.repeat(1,self.batch_size,1,1)
         scores = torch.zeros([self.gt_cuda.shape[0],self.batch_size, 3], device= torch.device("cuda:0"))
         for c in [1, 2, 3] :
-            pred = torch.where(self.batched_masks == c, 1, 0)
-            target = torch.where(self.gt_cuda == c, 1, 0)
-            metric = f()
-            scores[:,:,c - 1] = metric(pred, target)
-        return scores
+            preds = torch.where(self.batch_masks == c, 1, 0)
+            targets = torch.where(self.gt_cuda == c, 1, 0)
+            metric = f().to(torch.device("cuda:0"))
+            for idx in range(preds.shape[0]):
+                for b in range(preds.shape[1]):
+                    scores[idx,b,c - 1] = metric(preds[idx,b,:,:], targets[idx,b,:,:])
+        self.gt_cuda = self.gt_cuda.cpu()
+        self.batch_masks = self.batch_masks.cpu()
+        return scores.cpu()
 
     def get_results(self,dice_scores:torch.Tensor,iou_scores:torch.Tensor,accuracy_scores:torch.Tensor,num_prompt_class1:tuple[int,int], num_prompt_class2:tuple[int,int],num_prompt_class3:tuple[int,int]):
         """
@@ -122,15 +132,15 @@ class analyze:
                     num_prompt_class1[1],
                     num_prompt_class2[1],
                     num_prompt_class3[1],
-                    dice_scores[idx,b,0],
-                    dice_scores[idx,b,1],
-                    dice_scores[idx,b,2],
-                    iou_scores[idx,b,0],
-                    iou_scores[idx,b,1],
-                    iou_scores[idx,b,2],
-                    accuracy_scores[idx,b,0],
-                    accuracy_scores[idx,b,1],
-                    accuracy_scores[idx,b,2]
+                    int(dice_scores[idx,b,0]),
+                    int(dice_scores[idx,b,1]),
+                    int(dice_scores[idx,b,2]),
+                    int(iou_scores[idx,b,0]),
+                    int(iou_scores[idx,b,1]),
+                    int(iou_scores[idx,b,2]),
+                    int(accuracy_scores[idx,b,0]),
+                    int(accuracy_scores[idx,b,1]),
+                    int(accuracy_scores[idx,b,2])
                 ]
                 results.append(result)
         return results
