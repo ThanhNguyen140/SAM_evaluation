@@ -106,8 +106,6 @@ class analyze:
             for idx in range(preds.shape[0]):
                 for b in range(preds.shape[1]):
                     scores[idx,b,c - 1] = metric(preds[idx,b,:,:], targets[idx,b,:,:])
-        self.gt_cuda = self.gt_cuda.cpu()
-        self.batch_masks = self.batch_masks.cpu()
         return scores.cpu()
 
     def get_results(self,dice_scores:torch.Tensor,iou_scores:torch.Tensor,accuracy_scores:torch.Tensor,num_prompt_class1:tuple[int,int], num_prompt_class2:tuple[int,int],num_prompt_class3:tuple[int,int]):
@@ -124,24 +122,24 @@ class analyze:
         results = []
         for idx in range(dice_scores.shape[0]):
             for b in range(dice_scores.shape[1]):
-                result = [
-                    idx,
-                    num_prompt_class1[0],
-                    num_prompt_class2[0],
-                    num_prompt_class3[0],
-                    num_prompt_class1[1],
-                    num_prompt_class2[1],
-                    num_prompt_class3[1],
-                    int(dice_scores[idx,b,0]),
-                    int(dice_scores[idx,b,1]),
-                    int(dice_scores[idx,b,2]),
-                    int(iou_scores[idx,b,0]),
-                    int(iou_scores[idx,b,1]),
-                    int(iou_scores[idx,b,2]),
-                    int(accuracy_scores[idx,b,0]),
-                    int(accuracy_scores[idx,b,1]),
-                    int(accuracy_scores[idx,b,2])
-                ]
+                result = {
+                     "image_id":idx,
+                    "f_points_class_1":num_prompt_class1[0],
+                    "f_points_class_2":num_prompt_class2[0],
+                    "f_points_class_2":num_prompt_class3[0],
+                    "b_points_class_1":num_prompt_class1[1],
+                    "b_points_class_2":num_prompt_class2[1],
+                    "b_points_class_2":num_prompt_class3[1],
+                    "dice_class_1":round(float(dice_scores[idx,b,0]),3),
+                    "dice_class_2":round(float(dice_scores[idx,b,1]),3),
+                    "dice_class_3":round(float(dice_scores[idx,b,2]),3),
+                    "IOU_class_1":round(float(iou_scores[idx,b,0]),3),
+                    "IOU_class_2":round(float(iou_scores[idx,b,1]),3),
+                    "IOU_class_3":round(float(iou_scores[idx,b,2]),3),
+                    "accuracy_class_1":round(float(accuracy_scores[idx,b,0]),3),
+                    "accuracy_class_2":round(float(accuracy_scores[idx,b,1]),3),
+                    "accuracy_class_3":round(float(accuracy_scores[idx,b,2]),3)
+                }
                 results.append(result)
         return results
             
