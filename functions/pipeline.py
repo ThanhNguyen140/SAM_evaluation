@@ -106,7 +106,10 @@ class analyze:
             for idx in range(preds.shape[0]):
                 for b in range(preds.shape[1]):
                     scores[idx,b,c - 1] = metric(preds[idx,b,:,:], targets[idx,b,:,:])
+        self.gt_cuda = self.gt_cuda.cpu()
+        self.embeddings = self.embeddings.cpu()
         return scores.cpu()
+
 
     def get_results(self,dice_scores:torch.Tensor,iou_scores:torch.Tensor,accuracy_scores:torch.Tensor,num_prompt_class1:tuple[int,int], num_prompt_class2:tuple[int,int],num_prompt_class3:tuple[int,int]):
         """
@@ -126,10 +129,10 @@ class analyze:
                      "image_id":idx,
                     "f_points_class_1":num_prompt_class1[0],
                     "f_points_class_2":num_prompt_class2[0],
-                    "f_points_class_2":num_prompt_class3[0],
+                    "f_points_class_3":num_prompt_class3[0],
                     "b_points_class_1":num_prompt_class1[1],
                     "b_points_class_2":num_prompt_class2[1],
-                    "b_points_class_2":num_prompt_class3[1],
+                    "b_points_class_3":num_prompt_class3[1],
                     "dice_class_1":round(float(dice_scores[idx,b,0]),3),
                     "dice_class_2":round(float(dice_scores[idx,b,1]),3),
                     "dice_class_3":round(float(dice_scores[idx,b,2]),3),

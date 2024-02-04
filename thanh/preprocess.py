@@ -6,7 +6,8 @@ import nibabel as nib
 import sys
 import glob
 import gzip
-
+import gzip
+import torch
 
 def convert_to_one_hot(seg):
     vals = np.unique(seg)
@@ -42,6 +43,27 @@ def preprocess_image(nib_image, new_size=(216, 256,0), is_seg=False, keep_z_spac
     new_image = image.transpose()
     return new_image
 
+def remove_no_seg(path:str):
+    """ Remove slices containing no segmentations. Note: This function will overwrite the original files
+    Args:
+    path (str): path to ground truth embeddings files
+    Return:
+    torch.Tensor: new embeddings with desired list of indices
+    NDArray: new ground truth with slices containing segmentations """
+    f = gzip.GzipFile(f"{path}/ground_truth.npy.gz","r")
+    ground_truths = np.load(f)
+    embeddings = torch.load(f"{path}/embeddings.pt")
+    all_zeros = np.all(gt == 0, axis = 1)
+    # Set indices contain no segmentations to True. Images with segmentations have False
+    non_seg = np.all(all_zeros == True, axis = 1)
+    # Get list of indices where segmentations are present
+    ind = np.where(non_seg == False)
+    new_ground_truths = ground_truths[ind]
+    new_embeddings = embeddings[ind]
+    f2 = gzip.GzipFile(f"{path}/ground_truth.npy.gz","w")
+    np.save(f2,new_ground_truths)
+    torch.save(new_embeddings,f"{path}/embeddings.pt")
+    return new_embeddings,new_ground_truths
 
 if __name__ == "__main__":
     path = sys.argv[1]

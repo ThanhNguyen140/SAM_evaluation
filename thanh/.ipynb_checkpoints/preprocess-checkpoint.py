@@ -4,12 +4,10 @@ from multiprocessing import pool
 import numpy as np
 import nibabel as nib
 import sys
-
-def resize_image(image, old_spacing, new_spacing, order=3):# -> Any:
-    new_shape = (int(np.round(old_spacing[0]/new_spacing[0]*float(image.shape[0]))),
-                 int(np.round(old_spacing[1]/new_spacing[1]*float(image.shape[1]))),
-                 int(np.round(old_spacing[2]/new_spacing[2]*float(image.shape[2]))))
-    return resize(image, new_shape, order=order, mode='edge')
+import glob
+import gzip
+import gzip
+import torch
 
 def convert_to_one_hot(seg):
     vals = np.unique(seg)
@@ -19,17 +17,18 @@ def convert_to_one_hot(seg):
     return res
 
 
-def preprocess_image(nib_image, spacing_target=(10, 1.25, 1.25), is_seg=False, keep_z_spacing=False):
-    spacing = np.array(nib_image.header.get_zooms())[[2, 1, 0]]
+def preprocess_image(nib_image, new_size=(216, 256,0), is_seg=False, keep_z_spacing=False):
+    
     image = nib_image.get_fdata()
+    new_size = list(new_size)
     if keep_z_spacing:
-        spacing_target = list(spacing_target)
-        spacing_target[0] = spacing[0]
+        new_size[-1] = image.shape[-1]
     if not is_seg:
         order_img = 3
         if not keep_z_spacing:
             order_img = 1
-        image = resize_image(image, spacing, spacing_target, order=order_img).astype(np.float32)
+        image = resize(image, new_size, order=order_img, mode = "edge").astype(
+            np.float32)
         image -= image.mean()
         image /= image.std()
     else:
@@ -37,46 +36,70 @@ def preprocess_image(nib_image, spacing_target=(10, 1.25, 1.25), is_seg=False, k
         vals = np.unique(image)
         results = []
         for i in range(len(tmp)):
-            results.append(resize_image(tmp[i].astype(float), spacing, spacing_target, 1)[None])
+            results.append(
+                resize(tmp[i].astype(float), new_size, 1, mode = "edge")[None]
+            )
         image = vals[np.vstack(results).argmax(0)]
-    return image
+    new_image = image.transpose()
+    return new_image
 
-
+def remove_no_seg(path:str):
+    """ Remove slices containing no segmentations. Note: This function will overwrite the original files
+    Args:
+    path (str): path to ground truth embeddings files
+    Return:
+    torch.Tensor: new embeddings with desired list of indices
+    NDArray: new ground truth with slices containing segmentations """
+    f = gzip.GzipFile(f"{path}/ground_truth.npy.gz","r")
+    ground_truths = np.load(f)
+    embeddings = torch.load(f"{path}/embeddings.pt")
+    all_zeros = np.all(gt == 0, axis = 1)
+    # Set indices contain no segmentations to True. Images with segmentations have False
+    non_seg = np.all(all_zeros == True, axis = 1)
+    # Get list of indices where segmentations are present
+    ind = np.where(non_seg == False)
+    new_ground_truths = ground_truths[ind]
+    new_embeddings = embeddings[ind]
+    f2 = gzip.GzipFile(f"{path}/ground_truth.npy.gz","w")
+    np.save(f2,new_ground_truths)
+    torch.save(new_embeddings,f"{path}/embeddings.pt")
+    return new_embeddings,new_ground_truths
 
 if __name__ == "__main__":
     path = sys.argv[1]
-    output_dir = os.path.join(path,"preprocess")
+    output_dir = os.path.join(path, "preprocess")
     try:
         os.mkdir(output_dir)
     except:
         pass
+    ground_truth = []
+    images = []
     for folder in os.listdir(path):
         sub_dir = os.path.join(path, folder)
-        if not os.path.isfile(sub_dir) and folder != "preprocess" :
-            output_subdir = os.path.join(output_dir,folder)
-            try:
-                os.mkdir(output_subdir)
-            except:
-                pass
+        if not os.path.isfile(sub_dir) and folder != "preprocess":
             for sub_folder in os.listdir(sub_dir):
-                input_folder = os.path.join(sub_dir,sub_folder)
+                input_folder = os.path.join(sub_dir, sub_folder)
                 if not os.path.isfile(input_folder):
-                    output_folder = os.path.join(output_subdir,sub_folder)
-                    try:
-                        os.mkdir(output_folder)
-                    except:
-                        pass
                     os.chdir(input_folder)
                     for file in glob.glob("*.nii.gz"):
                         if "gt" in file:
-                            image = nib.load(file)
-                            pre_image = preprocess_image(image,is_seg = True, keep_z_spacing = True)
-                            output = os.path.join(output_folder,file)
-                            f = gzip.GzipFile(output.replace(".nii.gz",".npy.gz"), "w")
-                            np.save(f, pre_image)
-                        elif ("frame" in file) and ("gt" not in file) :
-                            image = nib.load(file)
-                            pre_image = preprocess_image(image,is_seg = False, keep_z_spacing = True)
-                            output = os.path.join(output_folder,file)
-                            f = gzip.GzipFile(output.replace(".nii.gz",".npy.gz"), "w")
-                            np.save(f, pre_image)
+                            gt_image = nib.load(file)
+                            gt_pre_image = preprocess_image(
+                                gt_image, is_seg=True, keep_z_spacing=True
+                            )
+                            ground_truth.append(gt_pre_image)
+                            image_file = file.replace("_gt","")
+                            image = nib.load(image_file)
+                            pre_image = preprocess_image(
+                                image, is_seg=False, keep_z_spacing=True
+                            )
+                            images.append(pre_image)
+
+    gt_output = os.path.join(output_dir,"ground_truth.npy.gz")
+    gt_f = gzip.GzipFile(gt_output, "w")
+    ground_truth = np.vstack(ground_truth)
+    np.save(gt_f, ground_truth)
+    images = np.vstack(images)
+    output = os.path.join(output_dir,"images.npy.gz")
+    f = gzip.GzipFile(output, "w")
+    np.save(f, images)
