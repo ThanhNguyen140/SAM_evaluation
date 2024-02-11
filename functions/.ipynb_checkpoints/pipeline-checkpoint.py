@@ -82,8 +82,8 @@ class analyze:
             del logit_class_3
         batch_masks = torch.stack(batch_masks,dim = 0)
         self.batch_masks = batch_masks[:,:,0,:,:]
-        self.embeddings = self.embeddings.cpu()
-        return self.batch_masks
+        del self.embeddings
+        return self.batch_masks.cpu()
 
     def scoring_function(self, f):
         """Generate scores for the predicted mask for each class
@@ -100,14 +100,14 @@ class analyze:
         self.gt_cuda = self.gt_cuda.repeat(1,self.batch_size,1,1)
         scores = torch.zeros([self.gt_cuda.shape[0],self.batch_size, 3], device= torch.device("cuda:0"))
         for c in [1, 2, 3] :
-            preds = torch.where(self.batch_masks == c, 1, 0)
+            preds = torch.where(self.batch_masks.cuda() == c, 1, 0)
             targets = torch.where(self.gt_cuda == c, 1, 0)
             metric = f().to(torch.device("cuda:0"))
             for idx in range(preds.shape[0]):
                 for b in range(preds.shape[1]):
                     scores[idx,b,c - 1] = metric(preds[idx,b,:,:], targets[idx,b,:,:])
         self.gt_cuda = self.gt_cuda.cpu()
-        self.embeddings = self.embeddings.cpu()
+        self.batch_masks = self.batch_masks.cpu()
         return scores.cpu()
 
 
