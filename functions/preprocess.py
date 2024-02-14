@@ -52,6 +52,8 @@ def remove_no_seg(path:str):
     NDArray: new ground truth with slices containing segmentations """
     f = gzip.GzipFile(f"{path}/ground_truth.npy.gz","r")
     ground_truths = np.load(f)
+    f2 = gzip.GzipFile(f"{path}/images.npy.gz","r")
+    images = np.load(f2)
     embeddings = torch.load(f"{path}/embeddings.pt")
     all_zeros = np.all(gt == 0, axis = 1)
     # Set indices contain no segmentations to True. Images with segmentations have False
@@ -60,10 +62,13 @@ def remove_no_seg(path:str):
     ind = np.where(non_seg == False)
     new_ground_truths = ground_truths[ind]
     new_embeddings = embeddings[ind]
-    f2 = gzip.GzipFile(f"{path}/ground_truth.npy.gz","w")
-    np.save(f2,new_ground_truths)
+    new_images = images[ind]
+    f3 = gzip.GzipFile(f"{path}/ground_truth.npy.gz","w")
+    np.save(f3,new_ground_truths)
+    f4 = gzip.GzipFile(f"{path}/images.npy.gz","w")
+    np.save(f4,new_images)
     torch.save(new_embeddings,f"{path}/embeddings.pt")
-    return new_embeddings,new_ground_truths
+    return new_embeddings,new_ground_truths, new_images
 
 if __name__ == "__main__":
     path = sys.argv[1]
