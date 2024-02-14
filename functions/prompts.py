@@ -7,7 +7,7 @@ class Prompt:
         self.batched_points = coordinates
         self.batched_labels = labels
         self.batch_size = coordinates.shape[0]
-        self.ground_truth = torch.tensor(ground_truth)
+        self.ground_truth = ground_truth
 
         # transform sam formatted prompts back to image shaped tensors
         self.prompts_tensor_f, self.prompts_tensor_b = self.coordinates_to_masks(
