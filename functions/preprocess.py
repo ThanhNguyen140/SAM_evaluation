@@ -55,7 +55,7 @@ def remove_no_seg(path:str):
     f2 = gzip.GzipFile(f"{path}/images.npy.gz","r")
     images = np.load(f2)
     embeddings = torch.load(f"{path}/embeddings.pt")
-    all_zeros = np.all(gt == 0, axis = 1)
+    all_zeros = np.all(ground_truths == 0, axis = 1)
     # Set indices contain no segmentations to True. Images with segmentations have False
     non_seg = np.all(all_zeros == True, axis = 1)
     # Get list of indices where segmentations are present
