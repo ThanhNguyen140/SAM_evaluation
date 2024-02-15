@@ -33,20 +33,21 @@ class Prompt:
             dtype=torch.uint8,
         )
         if coordinates.numel() != 0:  # if the prompt given wasn´t empty
-            # Get the indices where labels are equal to 1 (foreground)
-            foreground_indices = torch.nonzero(labels == 1, as_tuple=False)
-            foreground_coordinates = coordinates[
-                foreground_indices[:, 0], foreground_indices[:, 1]
-            ]
-            # Reshape the result to retain the batch dimension
-            foreground_coordinates = foreground_coordinates.view(
-                coordinates.shape[0], -1, 2
-            )
-            # Set the specified points to 1 in the mask tensor
+            if (labels == 1).any():  # if not all given labels are background
+                # Get the indices where labels are equal to 1 (foreground)
+                foreground_indices = torch.nonzero(labels == 1, as_tuple=False)
+                foreground_coordinates = coordinates[
+                    foreground_indices[:, 0], foreground_indices[:, 1]
+                ]
+                # Reshape the result to retain the batch dimension
+                foreground_coordinates = foreground_coordinates.view(
+                    coordinates.shape[0], -1, 2
+                )
+                # Set the specified points to 1 in the mask tensor
 
-            for i in range(foreground_coordinates.shape[0]):
-                row, col = foreground_coordinates[i, 0]
-                prompts_tensor_f[i, 0, row, col] = 1
+                for i in range(foreground_coordinates.shape[0]):
+                    row, col = foreground_coordinates[i, 0]
+                    prompts_tensor_f[i, 0, row, col] = 1
 
         # do everything again for background labeled points
         prompts_tensor_b = torch.zeros(
