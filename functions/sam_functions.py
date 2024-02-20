@@ -70,6 +70,9 @@ def batch_sample_from_class(
     other_class_indices = torch.nonzero(
         (ground_truth != target_class) & (ground_truth != 0), as_tuple=False
     )
+    if class_indices.numel() == 0:  # if target class is empty
+        n_background += n_foreground  # sample background points instead
+        n_foreground = 0
 
     if len(class_indices) < n_foreground:  # class has not as many pixels
         n_foreground = len(class_indices)  # change number of points to sample
@@ -80,11 +83,12 @@ def batch_sample_from_class(
         print(f"n_background was reduced to {n_background}.")
 
     for _ in range(batch_size):
-        points = class_indices[
-            np.random.choice(class_indices.shape[0], n_foreground, replace=False)
-        ]
-        points[:, [0, 1]] = points[:, [1, 0]]  # swap axes
-        labels = torch.tensor([1] * len(points))
+        if n_foreground != 0:
+            points = class_indices[
+                np.random.choice(class_indices.shape[0], n_foreground, replace=False)
+            ]
+            points[:, [0, 1]] = points[:, [1, 0]]  # swap axes
+            labels = torch.tensor([1] * len(points))
         if n_background > 0:
             background_points = other_class_indices[
                 np.random.choice(
@@ -93,8 +97,13 @@ def batch_sample_from_class(
             ]
             background_points[:, [0, 1]] = background_points[:, [1, 0]]  # swap axes
             background_labels = torch.tensor([0] * len(background_points))
-            points = torch.cat([points, background_points], dim=0)
-            labels = torch.cat([labels, background_labels], dim=0)
+
+            if n_foreground == 0:
+                points = background_points
+                labels = background_labels
+            else:
+                points = torch.cat([points, background_points], dim=0)
+                labels = torch.cat([labels, background_labels], dim=0)
 
         batched_points.append(points)
         batched_labels.append(labels)
@@ -182,9 +191,9 @@ def multiclass_prob(binary_logits, hard_labels=False):
     prob_background[mask] = 0
 
     multiclass_prob[..., 1 : len(binary_logits) + 1] = bin_probs
-    multiclass_prob[
-        ..., 0
-    ] = prob_background  # Use the last channel for prob_background
+    multiclass_prob[..., 0] = (
+        prob_background  # Use the last channel for prob_background
+    )
 
     if hard_labels == True:
         predicted_labels = np.argmax(multiclass_prob, axis=-1)
