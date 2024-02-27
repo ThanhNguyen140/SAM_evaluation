@@ -44,9 +44,9 @@ class Prompt:
                     coordinates.shape[0], -1, 2
                 )
                 # Set the specified points to 1 in the mask tensor
-
+                # CHANGED DIMENSIONS
                 for i in range(foreground_coordinates.shape[0]):
-                    row, col = foreground_coordinates[i, 0]
+                    col, row = foreground_coordinates[i, 0]
                     prompts_tensor_f[i, 0, row, col] = 1
 
         # do everything again for background labeled points
