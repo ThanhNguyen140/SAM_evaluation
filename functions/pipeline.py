@@ -176,7 +176,7 @@ def gzip_file(file, mode, image=False):
         in_image = np.load(f)
         return in_image
     elif mode == "w":
-        np.save(file, image)
+        np.save(f, image)
 
 
 class CustomData(Dataset):
@@ -249,3 +249,20 @@ class Results:
         with open(self.path, "a", newline="") as file:
             writer = csv.DictWriter(file, fieldnames=self.column_names)
             writer.writerows(rows)
+
+def get_class_list(class_num: int,ground_truth) -> list[int]:
+    """Get list of indices for each class for result analysis
+
+    Args:
+        class_num (int): a class of interest among classes 1,2,3
+        ground_truth (NDArray): ground truth arrays where segmentations of each class are 
+        annotated
+
+    Returns:
+        list: list of indices containing the class of interest
+    """
+    array1 = np.any(ground_truth == class_num, axis = 1)
+    array2 = np.any(array1 == True, axis = 1)
+    class_indices = np.where(array2 == True)
+    indices = list(class_indices[0])
+    return indices
